@@ -1,96 +1,60 @@
-import matplotlib.pyplot as plt
+
 import pandas as pd
+import matplotlib.pyplot as plt
 
-CLUST_N = 2
-DIM_N = 4
-POINT_N = 150
+bills = pd.read_csv("C:\\Users\\user\\Documents\\datamining-git\\mall.csv")
+cat_columns = bills.select_dtypes(['bool']).columns
+bills[cat_columns] = bills[cat_columns].apply(lambda x: pd.factorize(x)[0])
+style = bills['gender'].values
 
+for i in range(0, len(bills)):
+    plt.scatter(bills['income'][i], bills['spend'][i], color = (1.0-style[i], 0.0, style[i]), s=20)
+plt.show()
 
-class Point:
-    # x = x1 x2 .. xn
-    def __init__(self, x):
+KNBR_N = 5
+
+class POINT:
+    def __init__(self, x, y, pH,):
         self.x = x
-        self.clust = CLUST_N
+        self.y = y
+        self.pH = pH
+        self.kn = [0 for i in range(0, KNBR_N)]
+        self.clust = 0
 
-    def to_clust(self, CC):
-        n = CLUST_N
-        d = 2**31
-        for c in CC:
-            if c.dist(self) < d:
-                n = c.clust
-                d = c.dist(self)
-        self.clust = n
+    def neighbors(self, A):
+        l = [i for i in range(0, len(A))]
+        cl = [0,0]
+        for k in range(0, KNBR_N):
+            i0 = 0
+            d0 = 1.0e+99
+            cl[A['gender'][i0]] += 1
+            for i in l:
+                d = (self.x - A['income'][i])**2 + (self.y - A['spend'][i])**2 # 69%
+                d += (self.pH - A['Age'][i])**2 
 
-
-class Cluster(Point):
-    def __init__(self, cl, x):
-        Point.__init__(self, x)
-        self.clust = cl
-        self.N = 0
-
-    def dist(self, p):
-        dd = 0.0
-        for i in range(DIM_N):
-            dd += (self.x[i] - p.x[i])**2
-        return dd
-
-    def eval(self, p_set):
-        self.N = 0.02
-        for i in range(DIM_N):
-            self.x[i] = 0.0
-        for p in p_set:
-            if p.clust == self.clust:
-                self.N += 1
-                for i in range(DIM_N):
-                    self.x[i] += p.x[i]
-        for i in range(DIM_N):
-            self.x[i] /= self.N
+                if d0 > d and d > 0.0:
+                    cl[A['gender'][i0]] -= 1
+                    i0 = i
+                    cl[A['gender'][i0]] += 1
+                    d0 = d
+            self.kn[k] = i0
+            l.remove(i0)
+        if cl[0] > cl[1]:
+            self.clust = 0
+        else:
+            self.clust = 1
 
 
+PP = [POINT(bills['income'][i], bills['spend'][i], bills['Age'][i]) for i in range(0, len(bills))]
 
+for p in PP:
+    p.neighbors(bills)
+    plt.scatter(p.x, p.y, color=(1.0-float(p.clust), 0.0, float(p.clust)), s=20)
+plt.show()
 
-beer = pd.read_csv("C:\\Users\\user\\Documents\\datamining-git\\beer.csv")
-cat_columns = beer.select_dtypes(['bool']).columns
-beer[cat_columns] = beer[cat_columns].apply(lambda x: pd.factorize(x)[0])
+n = 0
+for i in range(0, len(bills)):
+    if PP[i].clust == bills['gender'][i]:
+        n += 1
 
-points_set = [Point([beer["OG"][i], beer["ABV"][i], beer["pH"][i], beer["IBU"][i]]) for i in range(len(beer))]
-cluster_set = [Cluster(1, [69.8,10.7,6.6,3.6]), Cluster(0, [85.2,12.3,9.4,5.3])]
-colors = ['#0000FF', '#00FF00']
-
-Prec0 = 0.0
-Prec = 0
-while True:
-
-    for p in points_set:
-        p.to_clust(cluster_set)
-    for cl in cluster_set:
-        cl.eval(points_set)
-
-    fig, axes = plt.subplots(3, 2, figsize=(14, 8))
-    n = 0
-    for i in range(DIM_N):
-        for j in range(i+1, DIM_N):
-            ix = int(n/ 3)
-            iy = int(n % 3)
-            for k in range(POINT_N):
-                axes[ix][iy].scatter(points_set[k].x[i], points_set[k].x[j], c = colors[beer["style"][k]], s = 20)
-            for c in cluster_set:
-                axes[ix][iy].scatter(c.x[i], c.x[j], c = 'red', s = 60, marker='*')
-
-            axes[ix][iy].set_xlabel("$Axis: (" + str(i) + ", " + str(j) + ')$', fontsize = 12)
-            axes[ix][iy].set_xticks([])
-            axes[ix][iy].set_yticks([])
-            n += 1
-    fig.tight_layout()
-    plt.title(str(Prec))
-    plt.show()
-
-    n = 0
-    for i in range(len(beer)):
-        if points_set[i].clust == beer["style"][i]:
-            n += 1
-    Prec = float(n)/len(beer)
-    print('=====>', Prec)
-    if abs(Prec - Prec0) < 0.001:
-        break
-    Prec0 = Prec
+print('=====>', float(n)/len(bills))
